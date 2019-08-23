@@ -1,0 +1,5 @@
+case os:getenv("BUILDDIR") of
+    false -> CONFIG;
+    "" -> CONFIG;
+    BuildDir -> [{base_dir, BuildDir} | CONFIG]
+end.
