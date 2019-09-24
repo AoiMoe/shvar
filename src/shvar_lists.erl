@@ -56,5 +56,7 @@ pop(Id) ->
 -spec ensure(val()) -> [any()].
 ensure(Val) when erlang:is_list(Val) ->
     Val;
+ensure(undefined) ->
+    [];
 ensure(_) ->
-    [].
+    erlang:error(unmatch_type).

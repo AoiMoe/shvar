@@ -12,13 +12,14 @@
          id/2,
          get/1,
          set/2,
-         get_pool/1,
+         reset/1,
          default_namespace/0,
          to_namespace/1,
          to_key/1,
          run/2,
          foldmap/2,
-         map/2
+         map/2,
+         get_pool/1
         ]).
 
 -export_type([
@@ -95,6 +96,11 @@ get(Id) ->
 -spec set(val(), id()) -> ok.
 set(Val, Id) ->
     ok = foldmap(fun(_) -> {ok, Val} end, Id).
+
+%% @doc reset the variable specified by Id.
+-spec reset(id()) -> ok.
+reset(Id) ->
+    ok = set(undefined, Id).
 
 %%========================================
 %% utils to implement new kind of variable

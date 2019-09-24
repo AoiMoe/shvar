@@ -34,5 +34,7 @@ decr(Id) ->
 -spec ensure(any()) -> number().
 ensure(Val) when erlang:is_integer(Val) ->
     Val;
+ensure(undefined) ->
+    0;
 ensure(_) ->
-    0.
+    erlang:error(unmatch_type).
