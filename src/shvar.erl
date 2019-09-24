@@ -74,7 +74,7 @@ init_link() ->
 %% @doc stop shvar server.
 -spec uninit(namespace()) -> ok.
 uninit(Namespace) ->
-    ok = send(exit, Namespace).
+    ok = send(exit, sync, Namespace).
 
 %% @equiv uninit(default_namespace())
 -spec uninit() -> ok.
@@ -120,11 +120,10 @@ to_key(Key) ->
 
 %% @doc manipulate pool atomically.
 -spec run(Fun, namespace()) -> Ret when
-        Fun :: fun((Pool) -> {Ret, Pool}),
-        Pool :: map(),
+        Fun :: fun((pool()) -> {Ret, pool()}),
         Ret :: any().
 run(Fun, Namespace) ->
-    case send({run, Fun}, Namespace) of
+    case send({run, Fun}, sync, Namespace) of
         {ok, Ret} ->
             Ret;
         {error, {E, R}} ->
@@ -160,15 +159,21 @@ get_pool(Namespace) ->
 %%================================================================================
 -spec init_impl(atom(), list()) -> {ok, pid()} | {error, already_started}.
 init_impl(Namespace, SpawnOpts) ->
-    Pid = erlang:spawn_opt(fun worker/0, SpawnOpts),
-    try
-        true = erlang:register(Namespace, Pid),
-        ok = send(init, Namespace),
-        {ok, Pid}
-    catch
-        error:badarg ->
-            true = erlang:unlink(Pid),
-            Pid ! ?MSG(erlang:self(), exit),
+    case erlang:whereis(Namespace) of
+        undefined ->
+            Pid = erlang:spawn_opt(fun worker/0, SpawnOpts),
+            try
+                true = erlang:register(Namespace, Pid),
+                ok = send(init, sync, Namespace),
+                {ok, Pid}
+            catch
+                error:badarg ->
+                    %% some race condition exists.
+                    true = erlang:unlink(Pid),
+                    send(exit, async, Pid),
+                    init_impl(Namespace, SpawnOpts)
+            end;
+        _ ->
             {error, already_started}
     end.
 
@@ -211,16 +216,24 @@ getter(Key, Pool) ->
 setter(Key, Val, Pool) ->
     ?COND(Val =:= undefined, maps:remove(Key, Pool), Pool#{Key => Val}).
 
--spec send(any(), atom()) -> any().
-send(Msg, Namespace) ->
+-spec send(any(), sync, namespace() | pid()) -> any();
+          (any(), async, namespace() | pid()) -> ok.
+send(Msg, Syncness, Namespace) when erlang:is_atom(Namespace) ->
     Pid = erlang:whereis(Namespace),
-    _ = erlang:is_pid(Pid) orelse erlang:error({uninitialized_namespace, Namespace}),
+    Pid =:= undefined andalso erlang:error({uninitialized_namespace, Namespace}),
+    send(Msg, Syncness, Pid);
+send(Msg, async, Pid) ->
+    Pid ! ?MSG(undefined, Msg),
+    ok;
+send(Msg, sync, Pid) ->
     Pid ! ?MSG(erlang:self(), Msg),
     receive
         ?MSG(Pid, {ack, Reply}) ->
             Reply
     end.
 
--spec ack(any(), pid()) -> _.
+-spec ack(any(), pid() | undefined) -> _.
+ack(_Val, undefined) ->
+    ok;
 ack(Val, Destination) ->
     Destination ! ?MSG(erlang:self(), {ack, Val}).
