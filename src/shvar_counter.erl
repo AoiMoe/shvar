@@ -5,7 +5,9 @@
 -export([
          new/1,
          incr/1,
-         decr/1
+         incr/2,
+         decr/1,
+         decr/2
         ]).
 
 -include("include/impl.hrl").
@@ -18,15 +20,27 @@
 new(Id) ->
     shvar:set(0, Id).
 
-%% @doc increment counter.
+%% @equiv incr(sync, Id)
 -spec incr(id()) -> integer().
 incr(Id) ->
-    shvar:map(fun(Val0) -> ensure(Val0)+1 end, Id).
+    incr(sync, Id).
 
-%% @doc decrement counter.
+%% @doc increment counter.
+-spec incr(sync, id()) -> integer();
+          (async, id()) -> ok.
+incr(Synchronousness, Id) ->
+    shvar:map(fun(Val0) -> ensure(Val0)+1 end, Synchronousness, Id).
+
+%% @equiv decr(sync, Id)
 -spec decr(id()) -> integer().
 decr(Id) ->
-    shvar:map(fun(Val0) -> ensure(Val0)-1 end, Id).
+    decr(sync, Id).
+
+%% @doc decrement counter.
+-spec decr(sync, id()) -> integer();
+          (async, id()) -> ok.
+decr(Synchronousness, Id) ->
+    shvar:map(fun(Val0) -> ensure(Val0)-1 end, Synchronousness, Id).
 
 %%================================================================================
 %% internal functions

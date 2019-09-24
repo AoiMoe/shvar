@@ -12,13 +12,17 @@
          id/2,
          get/1,
          set/2,
+         set/3,
          reset/1,
          default_namespace/0,
          to_namespace/1,
          to_key/1,
          run/2,
+         run/3,
          foldmap/2,
+         foldmap/3,
          map/2,
+         map/3,
          get_pool/1
         ]).
 
@@ -92,10 +96,15 @@ id(Namespace, Key) ->
 get(Id) ->
     foldmap(fun(Val0) -> {Val0, Val0} end, Id).
 
-%% @doc set Val into the variable specified by Id.
+%% @equiv set(Val, sync, Id)
 -spec set(val(), id()) -> ok.
 set(Val, Id) ->
-    ok = foldmap(fun(_) -> {ok, Val} end, Id).
+    set(Val, sync, Id).
+
+%% @doc set Val into the variable specified by Id.
+-spec set(val(), sync | async, id()) -> ok.
+set(Val, Synchronousness, Id) ->
+    ok = foldmap(fun(_) -> {ok, Val} end, Synchronousness, Id).
 
 %% @doc reset the variable specified by Id.
 -spec reset(id()) -> ok.
@@ -124,36 +133,54 @@ to_key(#'$shvar_full_id'{key = Key}) ->
 to_key(Key) ->
     Key.
 
-%% @doc manipulate pool atomically.
--spec run(Fun, namespace()) -> Ret when
-        Fun :: fun((pool()) -> {Ret, pool()}),
-        Ret :: any().
+%% @equiv run(Fun, sync, Namespace)
+-spec run(fun((pool()) -> {Ret, pool()}), namespace()) -> Ret.
 run(Fun, Namespace) ->
-    case send({run, Fun}, sync, Namespace) of
+    run(Fun, sync, Namespace).
+
+%% @doc manipulate pool atomically.
+-spec run(fun((pool()) -> {Ret, pool()}), sync, namespace()) -> Ret;
+         (fun((pool()) -> {_, pool()}), async, namespace()) -> ok.
+run(Fun, Synchronousness, Namespace) ->
+    case send({run, Fun}, Synchronousness, Namespace) of
+        ok ->
+            ok;
         {ok, Ret} ->
             Ret;
         {error, {E, R}} ->
             erlang:E(R)
     end.
 
-%% @doc foldmap on the variable. see get/1 and put/2 for usage.
+%% @equiv foldmap(Fun, sync, Id)
 -spec foldmap(fun((val() | undefined) -> {Ret, val()}), id()) -> Ret.
-foldmap(Fun, Id) ->
+foldmap(FoldFun, Id) ->
+    foldmap(FoldFun, sync, Id).
+
+%% @doc foldmap on the variable. see get/1 and put/2 for usage.
+-spec foldmap(fun((val() | undefined) -> {Ret, val()}), sync, id()) -> Ret;
+             (fun((val() | undefined) -> {_, val()}), async, id()) -> ok.
+foldmap(FoldFun, Synchronousness, Id) ->
     Key = to_key(Id),
     Namespace = to_namespace(Id),
     RunFun = fun(Pool0) ->
                      Val0 = getter(Key, Pool0),
-                     {Ret, Val1} = Fun(Val0),
+                     {Ret, Val1} = FoldFun(Val0),
                      Pool1 = setter(Key, Val1, Pool0),
                      {Ret, Pool1}
              end,
-    run(RunFun, Namespace).
+    run(RunFun, Synchronousness, Namespace).
 
-%% @doc map on the variable. see shvar_lists:push/2 for usage.
+%% @equiv map(MapFun, sync, Id)
 -spec map(fun((val() | undefined) -> val()), id()) -> val().
 map(MapFun, Id) ->
+    map(MapFun, sync, Id).
+
+%% @doc map on the variable. see shvar_lists:push/2 for usage.
+-spec map(fun((val() | undefined) -> val()), sync, id()) -> val();
+         (fun((val() | undefined) -> val()), async, id()) -> ok.
+map(MapFun, Synchronousness, Id) ->
     FoldMapFun = fun(Val0) -> Val1 = MapFun(Val0), {Val1, Val1} end,
-    foldmap(FoldMapFun, Id).
+    foldmap(FoldMapFun, Synchronousness, Id).
 
 %% @doc get current variable pool on Namespace (for debug).
 -spec get_pool(namespace()) -> pool().
