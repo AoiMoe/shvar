@@ -1,4 +1,5 @@
 REBAR3 ?= ./rebar3
+REBAR3_ARGS ?=
 BUILD_SUFFIX ?=
 
 ifdef BUILD_SUFFIX
@@ -7,8 +8,10 @@ else
 _REBAR3 = $(REBAR3)
 endif
 
-.DEFAULT: compile
-.PHONY: compile shell xref dialyzer edoc clean
+TARGETS= compile shell xref dialyzer edoc clean eunit
 
-compile shell xref dialyzer edoc clean:
-	$(_REBAR3) $@
+.DEFAULT: compile
+.PHONY: $(TARGETS)
+
+$(TARGETS):
+	$(_REBAR3) $@ $(REBAR3_ARGS)
