@@ -13,35 +13,44 @@
 
 -define(now_ms(), erlang:monotonic_time(milli_seconds)). % OTP/18
 
+-type state() :: initial
+               | running
+               | {done, any()}
+               | {failed, exception()}
+                 .
+-type exception() :: {error | throw | exit, any()}.
+
 %%================================================================================
 %% exported functions
 %%================================================================================
 %% @doc initialize run-once.
 -spec new(id()) -> ok.
 new(Id) ->
-    shvar:set({?MODULE, initial}, Id).
+    shvar:set(wrap(initial), Id).
 
 %% @doc run once.
 -spec run(fun(() -> Ret), id()) -> {done, Ret} | running.
 run(Fun, Id) ->
     FoldMapFun =
         fun(Val0) ->
-                case ensure(Val0) of
-                    {Tag, initial} -> {initial, {Tag, running}};
-                    {_Tag, State} -> {State, Val0}
+                case unwrap(Val0) of
+                    initial -> {initial, wrap(running)};
+                    State -> {State, Val0}
                 end
         end,
     case shvar:foldmap(FoldMapFun, Id) of
         initial ->
             try
                 Ret = Fun(),
-                shvar:set({?MODULE, {done, Ret}}, Id),
+                shvar:set(wrap({done, Ret}), Id),
                 {done, Ret}
             catch
                 E:R ->
-                    shvar:set({?MODULE, initial}, Id),
+                    shvar:set(wrap({failed, {E, R}}), Id),
                     erlang:E(R)
             end;
+        {failed, {E, R}} ->
+            erlang:E(R);
         State ->
             State
     end.
@@ -68,13 +77,17 @@ wait_for(Opts, Id) ->
 %%================================================================================
 %% internal functions
 %%================================================================================
--spec ensure(any()) -> {?MODULE, initial | running | {done, any()}}.
-ensure(undefined) ->
-    {?MODULE, initial};
-ensure({?MODULE, _} = X) ->
+-spec unwrap(val()) -> state().
+unwrap(undefined) ->
+    initial;
+unwrap({?MODULE, X}) ->
     X;
-ensure(_) ->
+unwrap(_) ->
     erlang:error(unmatch_type).
+
+-spec wrap(state()) -> {?MODULE, state()}.
+wrap(S) ->
+    {?MODULE, S}.
 
 -spec wait_for_done(DeadlineMs :: integer() | infinity, IntervalMs :: pos_integer(), id()) -> Ret :: any().
 wait_for_done(DeadlineMs, IntervalMs, Id) ->
@@ -82,15 +95,12 @@ wait_for_done(DeadlineMs, IntervalMs, Id) ->
         true -> erlang:error(timeout);
         false ->
             %% note: any atom (including 'infinity') is bigger than any number.
-            case shvar:get(Id) of
-                {?MODULE, {done, Ret}} ->
+            case unwrap(shvar:get(Id)) of
+                {done, Ret} ->
                     Ret;
-                X ->
-                    case X of
-                        {?MODULE, _} -> ok;
-                        undefined -> ok;
-                        _ -> erlang:error(unmatch_type)
-                    end,
+                {failed, {E, R}} ->
+                    erlang:E(R);
+                _ ->
                     timer:sleep(IntervalMs),
                     wait_for_done(DeadlineMs, IntervalMs, Id)
             end
