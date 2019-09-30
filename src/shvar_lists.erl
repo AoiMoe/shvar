@@ -4,6 +4,7 @@
 
 -export([
          new/1,
+         get/1,
          map_whole/2,
          map_whole/3,
          foldmap_whole/2,
@@ -23,6 +24,11 @@
 -spec new(id()) -> ok.
 new(Id) ->
     shvar:set([], Id).
+
+%% @doc get list value (with 'ensure').
+-spec get(id()) -> integer().
+get(Id) ->
+    ensure(shvar:get(Id)).
 
 %% @equiv map_whole(Fun, sync, Id)
 -spec map_whole(fun(([any()]) -> [any()]), id()) -> [any()].

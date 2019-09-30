@@ -4,6 +4,7 @@
 
 -export([
          new/1,
+         get/1,
          incr/1,
          incr/2,
          decr/1,
@@ -19,6 +20,11 @@
 -spec new(id()) -> ok.
 new(Id) ->
     shvar:set(0, Id).
+
+%% @doc get counter value (with 'ensure').
+-spec get(id()) -> integer().
+get(Id) ->
+    ensure(shvar:get(Id)).
 
 %% @equiv incr(sync, Id)
 -spec incr(id()) -> integer().
