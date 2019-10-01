@@ -26,7 +26,7 @@ new(Id) ->
     shvar:set([], Id).
 
 %% @doc get list value (with 'ensure').
--spec get(id()) -> integer().
+-spec get(id()) -> list().
 get(Id) ->
     ensure(shvar:get(Id)).
 
