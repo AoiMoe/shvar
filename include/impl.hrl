@@ -1,4 +1,5 @@
 -type namespace() :: atom().
 -type key() :: any().
 -type val() :: any().
--type id() :: key() | shvar:full_id().
+-type id(Key) :: Key | shvar:full_id(Key).
+-type id() :: id(key()).

@@ -30,7 +30,9 @@
               namespace/0,
               key/0,
               val/0,
+              id/1,
               id/0,
+              full_id/1,
               full_id/0,
               pool/0
              ]).
@@ -46,7 +48,8 @@
             key :: key()
         }).
 
--opaque full_id() :: #'$shvar_full_id'{}.
+-opaque full_id(_Key) :: #'$shvar_full_id'{}.
+-opaque full_id() :: full_id(key()).
 
 -opaque pool() :: map().
 
