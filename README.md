@@ -2,10 +2,10 @@
 Simple and **non**-scalable shared variables implementation in Erlang, mainly for tests.
 
 ## Build
-    $ ./rebar3 compile
+    $ make compile
 
 ## Brief usage
-    $ ./rebar3 shell
+    $ make shell
     1> shvar:init().
     ok
     2> shvar_counter:incr(hoge).
@@ -14,19 +14,21 @@ Simple and **non**-scalable shared variables implementation in Erlang, mainly fo
     2
     4> shvar:get(hoge).
     2
-    5> shvar_lists:push(hoge, x).
+    5> shvar:reset(hoge).
+    ok
+    6> shvar_lists:push(x, hoge).
     [x]
-    6> shvar_lists:push(hoge, y).
+    7> shvar_lists:push(y, hoge).
     [y,x]
-    7> shvar_lists:push(hoge, z).
+    8> shvar_lists:push(z, hoge).
     [z,y,x]
-    8> shvar_lists:pop(hoge).
-    z
-    11> shvar:get(hoge).
-    [y,x]
     9> shvar_lists:pop(hoge).
+    z
+    10> shvar:get(hoge).
+    [y,x]
+    11> shvar_lists:pop(hoge).
     y
-    10> shvar_lists:pop(hoge).
+    12> shvar_lists:pop(hoge).
     x
-    12> shvar:uninit().
+    13> shvar:uninit().
     ok
