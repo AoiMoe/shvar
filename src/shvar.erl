@@ -26,8 +26,6 @@
          foldmap/3,
          map/2,
          map/3,
-         get_from_pool/2,
-         put_into_pool/3,
          get_pool/1
         ]).
 
@@ -45,7 +43,6 @@
 -include("include/impl.hrl").
 
 -define(MSG(From, Msg), {?MODULE, From, Msg}).
--define(COND(Cond, Then, Else), case Cond of true -> Then; false -> Else end).
 
 -record('$shvar_full_id',
         {
@@ -56,7 +53,7 @@
 -opaque full_id(_Key) :: #'$shvar_full_id'{}.
 -opaque full_id() :: full_id(key()).
 
--opaque pool() :: map().
+-type pool() :: shvar__pool:pool().
 
 %%================================================================================
 %% exported functions
@@ -123,17 +120,17 @@ reset(Id) ->
 %% @doc get all keys.
 -spec keys(namespace()) -> [key()].
 keys(Namespace) ->
-    run(fun(Pool) -> {maps:keys(Pool), Pool} end, Namespace).
+    shvar__pool:keys(get_pool(Namespace)).
 
 %% @doc get all values.
 -spec values(namespace()) -> [val()].
 values(Namespace) ->
-    run(fun(Pool) -> {maps:values(Pool), Pool} end, Namespace).
+    shvar__pool:values(get_pool(Namespace)).
 
 %% @doc convert to list.
 -spec to_list(namespace()) -> [{key(), val()}].
 to_list(Namespace) ->
-    maps:to_list(get_pool(Namespace)).
+    shvar__pool:to_list(get_pool(Namespace)).
 
 %%========================================
 %% utils to implement new kind of variable
@@ -189,9 +186,9 @@ foldmap(FoldMapFun, Synchronousness, Id) ->
     Key = to_key(Id),
     Namespace = to_namespace(Id),
     RunFun = fun(Pool0) ->
-                     Val0 = get_from_pool(Key, Pool0),
+                     Val0 = shvar__pool:get(Key, Pool0),
                      {Ret, Val1} = FoldMapFun(Val0),
-                     Pool1 = put_into_pool(Key, Val1, Pool0),
+                     Pool1 = shvar__pool:put(Key, Val1, Pool0),
                      {Ret, Pool1}
              end,
     run(RunFun, Synchronousness, Namespace).
@@ -207,16 +204,6 @@ map(MapFun, Id) ->
 map(MapFun, Synchronousness, Id) ->
     FoldMapFun = fun(Val0) -> Val1 = MapFun(Val0), {Val1, Val1} end,
     foldmap(FoldMapFun, Synchronousness, Id).
-
-%% @doc get value associated with Key from Pool.
--spec get_from_pool(key(), pool()) -> val().
-get_from_pool(Key, Pool) ->
-    maps:get(Key, Pool, undefined).
-
-%% @doc put Val associated with Key into Pool.
--spec put_into_pool(key(), val(), pool()) -> pool().
-put_into_pool(Key, Val, Pool) ->
-    ?COND(Val =:= undefined, maps:remove(Key, Pool), Pool#{Key => Val}).
 
 %% @doc get current variable pool on Namespace (for debug).
 -spec get_pool(namespace()) -> pool().
@@ -248,7 +235,7 @@ init_impl(Namespace, SpawnOpts) ->
 
 -spec worker() -> _.
 worker() ->
-    worker_1(#{}).
+    worker_1(shvar__pool:new()).
 
 -spec worker_1(pool()) -> _.
 worker_1(Pool0) ->
