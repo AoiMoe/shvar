@@ -26,6 +26,8 @@
          foldmap/3,
          map/2,
          map/3,
+         get_from_pool/2,
+         put_into_pool/3,
          get_pool/1
         ]).
 
@@ -203,6 +205,14 @@ map(MapFun, Synchronousness, Id) ->
     FoldMapFun = fun(Val0) -> Val1 = MapFun(Val0), {Val1, Val1} end,
     foldmap(FoldMapFun, Synchronousness, Id).
 
+-spec get_from_pool(key(), pool()) -> val().
+get_from_pool(Key, Pool) ->
+    maps:get(Key, Pool, undefined).
+
+-spec put_into_pool(key(), val(), pool()) -> pool().
+put_into_pool(Key, Val, Pool) ->
+    ?COND(Val =:= undefined, maps:remove(Key, Pool), Pool#{Key => Val}).
+
 %% @doc get current variable pool on Namespace (for debug).
 -spec get_pool(namespace()) -> pool().
 get_pool(Namespace) ->
@@ -261,14 +271,6 @@ worker_1(Pool0) ->
         {continue, Pool9} ->
             worker_1(Pool9)
     end.
-
--spec get_from_pool(key(), pool()) -> val().
-get_from_pool(Key, Pool) ->
-    maps:get(Key, Pool, undefined).
-
--spec put_into_pool(key(), val(), pool()) -> pool().
-put_into_pool(Key, Val, Pool) ->
-    ?COND(Val =:= undefined, maps:remove(Key, Pool), Pool#{Key => Val}).
 
 -spec send(any(), sync, namespace() | pid()) -> any();
           (any(), async, namespace() | pid()) -> ok.
