@@ -177,20 +177,20 @@ run(Fun, Synchronousness, Namespace) ->
 
 %% @equiv foldmap(Fun, sync, Id)
 -spec foldmap(fun((val() | undefined) -> {Ret, val()}), id()) -> Ret.
-foldmap(FoldFun, Id) ->
-    foldmap(FoldFun, sync, Id).
+foldmap(FoldMapFun, Id) ->
+    foldmap(FoldMapFun, sync, Id).
 
 %% @doc foldmap operation on the variable specified by Id.
 %% see get/1 and set/2 for usage.<br />
-%% HEADS UP: this is not `mapfold', and be careful of the order of the return tuple of FoldFun.
+%% HEADS UP: this is not `mapfold', and be careful of the order of the return tuple of FoldMapFun.
 -spec foldmap(fun((val() | undefined) -> {Ret, val()}), sync, id()) -> Ret;
              (fun((val() | undefined) -> {_, val()}), async, id()) -> ok.
-foldmap(FoldFun, Synchronousness, Id) ->
+foldmap(FoldMapFun, Synchronousness, Id) ->
     Key = to_key(Id),
     Namespace = to_namespace(Id),
     RunFun = fun(Pool0) ->
                      Val0 = get_from_pool(Key, Pool0),
-                     {Ret, Val1} = FoldFun(Val0),
+                     {Ret, Val1} = FoldMapFun(Val0),
                      Pool1 = put_into_pool(Key, Val1, Pool0),
                      {Ret, Pool1}
              end,
