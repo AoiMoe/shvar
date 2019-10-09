@@ -14,6 +14,9 @@
          set/2,
          set/3,
          reset/1,
+         keys/1,
+         values/1,
+         to_list/1,
          default_namespace/0,
          to_namespace/1,
          to_key/1,
@@ -40,7 +43,6 @@
 -include("include/impl.hrl").
 
 -define(MSG(From, Msg), {?MODULE, From, Msg}).
--define(COND(Cond, Then, Else), case Cond of true -> Then; false -> Else end).
 
 -record('$shvar_full_id',
         {
@@ -51,7 +53,7 @@
 -opaque full_id(_Key) :: #'$shvar_full_id'{}.
 -opaque full_id() :: full_id(key()).
 
--opaque pool() :: map().
+-type pool() :: shvar__pool:pool().
 
 %%================================================================================
 %% exported functions
@@ -94,25 +96,41 @@ uninit() ->
 id(Namespace, Key) ->
     #'$shvar_full_id'{namespace = Namespace, key = Key}.
 
-%% @doc get value of the variable specified by Id.
+%% @doc get value of variable Id.
 -spec get(id()) -> val().
 get(Id) ->
     foldmap(fun(Val0) -> {Val0, Val0} end, Id).
 
 %% @equiv set(Val, sync, Id)
+%% @doc set value of variable Id to Val -- HEADS UP: be careful of argument order.
 -spec set(val(), id()) -> ok.
 set(Val, Id) ->
     set(Val, sync, Id).
 
-%% @doc set Val into the variable specified by Id.
+%% @doc set value of variable Id to Val.
 -spec set(val(), sync | async, id()) -> ok.
 set(Val, Synchronousness, Id) ->
     ok = foldmap(fun(_) -> {ok, Val} end, Synchronousness, Id).
 
-%% @doc reset the variable specified by Id.
+%% @doc reset value of variable Id.
 -spec reset(id()) -> ok.
 reset(Id) ->
     ok = set(undefined, Id).
+
+%% @doc get all keys.
+-spec keys(namespace()) -> [key()].
+keys(Namespace) ->
+    shvar__pool:keys(get_pool(Namespace)).
+
+%% @doc get all values.
+-spec values(namespace()) -> [val()].
+values(Namespace) ->
+    shvar__pool:values(get_pool(Namespace)).
+
+%% @doc convert to list.
+-spec to_list(namespace()) -> [{key(), val()}].
+to_list(Namespace) ->
+    shvar__pool:to_list(get_pool(Namespace)).
 
 %%========================================
 %% utils to implement new kind of variable
@@ -156,19 +174,21 @@ run(Fun, Synchronousness, Namespace) ->
 
 %% @equiv foldmap(Fun, sync, Id)
 -spec foldmap(fun((val() | undefined) -> {Ret, val()}), id()) -> Ret.
-foldmap(FoldFun, Id) ->
-    foldmap(FoldFun, sync, Id).
+foldmap(FoldMapFun, Id) ->
+    foldmap(FoldMapFun, sync, Id).
 
-%% @doc foldmap on the variable. see get/1 and put/2 for usage.
+%% @doc foldmap operation on the variable specified by Id.
+%% see get/1 and set/2 for usage.<br />
+%% HEADS UP: this is not `mapfold', and be careful of the order of the return tuple of FoldMapFun.
 -spec foldmap(fun((val() | undefined) -> {Ret, val()}), sync, id()) -> Ret;
              (fun((val() | undefined) -> {_, val()}), async, id()) -> ok.
-foldmap(FoldFun, Synchronousness, Id) ->
+foldmap(FoldMapFun, Synchronousness, Id) ->
     Key = to_key(Id),
     Namespace = to_namespace(Id),
     RunFun = fun(Pool0) ->
-                     Val0 = getter(Key, Pool0),
-                     {Ret, Val1} = FoldFun(Val0),
-                     Pool1 = setter(Key, Val1, Pool0),
+                     Val0 = shvar__pool:get(Key, Pool0),
+                     {Ret, Val1} = FoldMapFun(Val0),
+                     Pool1 = shvar__pool:put(Key, Val1, Pool0),
                      {Ret, Pool1}
              end,
     run(RunFun, Synchronousness, Namespace).
@@ -178,7 +198,7 @@ foldmap(FoldFun, Synchronousness, Id) ->
 map(MapFun, Id) ->
     map(MapFun, sync, Id).
 
-%% @doc map on the variable. see shvar_lists:push/2 for usage.
+%% @doc map operation on the variable specified by Id. see shvar_lists:push/2 for usage.
 -spec map(fun((val() | undefined) -> val()), sync, id()) -> val();
          (fun((val() | undefined) -> val()), async, id()) -> ok.
 map(MapFun, Synchronousness, Id) ->
@@ -215,7 +235,7 @@ init_impl(Namespace, SpawnOpts) ->
 
 -spec worker() -> _.
 worker() ->
-    worker_1(#{}).
+    worker_1(shvar__pool:new()).
 
 -spec worker_1(pool()) -> _.
 worker_1(Pool0) ->
@@ -243,14 +263,6 @@ worker_1(Pool0) ->
         {continue, Pool9} ->
             worker_1(Pool9)
     end.
-
--spec getter(key(), pool()) -> val().
-getter(Key, Pool) ->
-    maps:get(Key, Pool, undefined).
-
--spec setter(key(), val(), pool()) -> pool().
-setter(Key, Val, Pool) ->
-    ?COND(Val =:= undefined, maps:remove(Key, Pool), Pool#{Key => Val}).
 
 -spec send(any(), sync, namespace() | pid()) -> any();
           (any(), async, namespace() | pid()) -> ok.
