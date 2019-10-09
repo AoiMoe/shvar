@@ -99,23 +99,23 @@ uninit() ->
 id(Namespace, Key) ->
     #'$shvar_full_id'{namespace = Namespace, key = Key}.
 
-%% @doc get value of the variable specified by Id.
+%% @doc get value of variable Id.
 -spec get(id()) -> val().
 get(Id) ->
     foldmap(fun(Val0) -> {Val0, Val0} end, Id).
 
 %% @equiv set(Val, sync, Id)
-%% @doc set Val into the variable specified by Id -- HEADS UP: be careful of argument order.
+%% @doc set value of variable Id to Val -- HEADS UP: be careful of argument order.
 -spec set(val(), id()) -> ok.
 set(Val, Id) ->
     set(Val, sync, Id).
 
-%% @doc set Val into the variable specified by Id.
+%% @doc set value of variable Id to Val.
 -spec set(val(), sync | async, id()) -> ok.
 set(Val, Synchronousness, Id) ->
     ok = foldmap(fun(_) -> {ok, Val} end, Synchronousness, Id).
 
-%% @doc reset the variable specified by Id.
+%% @doc reset value of variable Id.
 -spec reset(id()) -> ok.
 reset(Id) ->
     ok = set(undefined, Id).
@@ -208,10 +208,12 @@ map(MapFun, Synchronousness, Id) ->
     FoldMapFun = fun(Val0) -> Val1 = MapFun(Val0), {Val1, Val1} end,
     foldmap(FoldMapFun, Synchronousness, Id).
 
+%% @doc get value associated with Key from Pool.
 -spec get_from_pool(key(), pool()) -> val().
 get_from_pool(Key, Pool) ->
     maps:get(Key, Pool, undefined).
 
+%% @doc put Val associated with Key into Pool.
 -spec put_into_pool(key(), val(), pool()) -> pool().
 put_into_pool(Key, Val, Pool) ->
     ?COND(Val =:= undefined, maps:remove(Key, Pool), Pool#{Key => Val}).
