@@ -184,9 +184,9 @@ foldmap(FoldFun, Synchronousness, Id) ->
     Key = to_key(Id),
     Namespace = to_namespace(Id),
     RunFun = fun(Pool0) ->
-                     Val0 = getter(Key, Pool0),
+                     Val0 = get_from_pool(Key, Pool0),
                      {Ret, Val1} = FoldFun(Val0),
-                     Pool1 = setter(Key, Val1, Pool0),
+                     Pool1 = put_into_pool(Key, Val1, Pool0),
                      {Ret, Pool1}
              end,
     run(RunFun, Synchronousness, Namespace).
@@ -262,12 +262,12 @@ worker_1(Pool0) ->
             worker_1(Pool9)
     end.
 
--spec getter(key(), pool()) -> val().
-getter(Key, Pool) ->
+-spec get_from_pool(key(), pool()) -> val().
+get_from_pool(Key, Pool) ->
     maps:get(Key, Pool, undefined).
 
--spec setter(key(), val(), pool()) -> pool().
-setter(Key, Val, Pool) ->
+-spec put_into_pool(key(), val(), pool()) -> pool().
+put_into_pool(Key, Val, Pool) ->
     ?COND(Val =:= undefined, maps:remove(Key, Pool), Pool#{Key => Val}).
 
 -spec send(any(), sync, namespace() | pid()) -> any();
