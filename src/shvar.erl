@@ -14,6 +14,9 @@
          set/2,
          set/3,
          reset/1,
+         keys/1,
+         values/1,
+         to_list/1,
          default_namespace/0,
          to_namespace/1,
          to_key/1,
@@ -113,6 +116,21 @@ set(Val, Synchronousness, Id) ->
 -spec reset(id()) -> ok.
 reset(Id) ->
     ok = set(undefined, Id).
+
+%% @doc get all keys.
+-spec keys(namespace()) -> [key()].
+keys(Namespace) ->
+    run(fun(Pool) -> {maps:keys(Pool), Pool} end, Namespace).
+
+%% @doc get all values.
+-spec values(namespace()) -> [val()].
+values(Namespace) ->
+    run(fun(Pool) -> {maps:values(Pool), Pool} end, Namespace).
+
+%% @doc convert to list.
+-spec to_list(namespace()) -> [{key(), val()}].
+to_list(Namespace) ->
+    maps:to_list(get_pool(Namespace)).
 
 %%========================================
 %% utils to implement new kind of variable
