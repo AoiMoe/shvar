@@ -180,7 +180,7 @@ run(Fun, Synchronousness, Namespace) ->
 foldmap(FoldFun, Id) ->
     foldmap(FoldFun, sync, Id).
 
-%% @doc foldmap on the variable. see get/1 and put/2 for usage.
+%% @doc foldmap on the variable. see get/1 and set/2 for usage.
 -spec foldmap(fun((val() | undefined) -> {Ret, val()}), sync, id()) -> Ret;
              (fun((val() | undefined) -> {_, val()}), async, id()) -> ok.
 foldmap(FoldFun, Synchronousness, Id) ->
