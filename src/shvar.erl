@@ -105,6 +105,7 @@ get(Id) ->
     foldmap(fun(Val0) -> {Val0, Val0} end, Id).
 
 %% @equiv set(Val, sync, Id)
+%% @doc set Val into the variable specified by Id -- HEADS UP: be careful of argument order.
 -spec set(val(), id()) -> ok.
 set(Val, Id) ->
     set(Val, sync, Id).
